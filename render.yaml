@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: hermes-tools-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python api_server.py $PORT
+    envVars:
+      - key: HF_TOKEN
+        sync: false
+    plan: free
