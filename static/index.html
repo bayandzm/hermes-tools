@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Hub — Project Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px; padding-bottom: 16px;
+    border-bottom: 1px solid #1e1e2e;
+  }
+  .header h1 {
+    font-size: 24px; font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header .status-bar {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: #888;
+  }
+  .header .status-bar .dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+  .dot.green { background: #22c55e; }
+  .dot.red { background: #ef4444; }
+  .dot.yellow { background: #eab308; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: #12121a; border: 1px solid #1e1e2e; border-radius: 12px;
+    padding: 20px; transition: all .2s;
+  }
+  .card:hover { border-color: #2e2e42; }
+  .card-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-title h2 {
+    font-size: 15px; font-weight: 600;
+  }
+  .status-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 6px; text-transform: uppercase;
+  }
+  .status-badge.online { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e55; }
+  .status-badge.offline { background: #ef444422; color: #ef4444; border: 1px solid #ef444455; }
+  .status-badge.unknown { background: #eab30822; color: #eab308; border: 1px solid #eab30855; }
+  .card-body { font-size: 13px; color: #999; line-height: 1.6; }
+  .card-body .label { color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-top: 8px; }
+  .card-body .value { color: #ccc; }
+  .card-actions { margin-top: 12px; display: flex; gap: 8px; }
+  .btn {
+    font-size: 12px; font-weight: 500; padding: 6px 12px;
+    border-radius: 6px; border: 1px solid #2e2e42; background: #1a1a25;
+    color: #ccc; cursor: pointer; transition: all .15s;
+  }
+  .btn:hover { background: #252535; border-color: #3b82f6; color: #fff; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  .btn.primary:hover { background: #2563eb; }
+  .btn.danger { border-color: #ef444455; color: #f87171; }
+  .btn.danger:hover { background: #ef444422; }
+  .meta {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid #1e1e2e;
+    font-size: 12px; color: #555;
+  }
+  .refresh-btn {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: #3b82f6; border: none; color: #fff;
+    font-size: 20px; cursor: pointer; box-shadow: 0 4px 20px #3b82f644;
+    transition: all .2s; display: flex; align-items: center; justify-content: center;
+  }
+  .refresh-btn:hover { transform: scale(1.1); background: #2563eb; }
+  .refresh-btn:active { transform: scale(.95); }
+  .refresh-btn.spinning { animation: spin 1s linear; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .skeleton {
+    background: linear-gradient(90deg, #1a1a25 25%, #222 50%, #1a1a25 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite;
+    border-radius: 6px; height: 100px;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .api-data { margin-top: 8px; padding: 8px; background: #0a0a12; border-radius: 6px; font-family: monospace; font-size: 11px; max-height: 120px; overflow-y: auto; color: #888; }
+  .toast {
+    position: fixed; bottom: 80px; right: 24px;
+    background: #1a1a25; border: 1px solid #2e2e42; border-radius: 8px;
+    padding: 10px 16px; font-size: 13px; color: #ccc;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚕ Hermes Hub</h1>
+  <div class="status-bar">
+    <span id="countDisplay">0/0 online</span>
+    <span>|</span>
+    <span id="timeDisplay">--:--:--</span>
+  </div>
+</div>
+<div class="grid" id="grid">
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+</div>
+<div class="meta">
+  <span>🔄 Auto-refresh setiap 30s</span>
+  <span>⚡ Hermes Hub v1.0</span>
+  <span id="lastUpdate">—</span>
+</div>
+<button class="refresh-btn" id="refreshBtn" onclick="refresh()">↻</button>
+<div class="toast" id="toast"></div>
+
+<script>
+const PROJECT_ICONS = {
+  "Microstock Factory": "🎬",
+  "Charon (Trench Agent)": "🤖",
+  "Gengar PolyBot": "👻",
+  "Meridian Bot": "🧭",
+  "GeoForge": "🌍",
+  "PRL Miner": "⛏️",
+};
+
+async function fetchStatus() {
+  const r = await fetch('/api/status');
+  return await r.json();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function restartProject(name) {
+  const btn = document.querySelector(`[data-project="${name}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  showToast(`Restarting ${name}...`);
+  const r = await fetch(`/api/restart?project=${encodeURIComponent(name)}`);
+  const data = await r.json();
+  showToast(data.success ? `✅ ${name} restarted` : `❌ ${name}: ${data.error || 'failed'}`);
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Restart'; }
+  refresh();
+}
+
+function renderCard(name, data) {
+  const icon = PROJECT_ICONS[name] || '📦';
+  const isOnline = data.running;
+  const badge = isOnline ? '<span class="status-badge online">● Online</span>' :
+                          '<span class="status-badge offline">● Offline</span>';
+  const portStr = data.port ? `Port :${data.port}` : '—';
+
+  let detailHtml = '';
+  if (data.detail && !data.detail.includes('DOWN') && !data.detail.includes('NOT')) {
+    detailHtml = `<div class="label">Detail</div><div class="value">${data.detail}</div>`;
+  }
+
+  let apiHtml = '';
+  if (data.api) {
+    for (const [endpoint, jsonData] of Object.entries(data.api)) {
+      const str = typeof jsonData === 'string' ? jsonData : JSON.stringify(jsonData, null, 2);
+      apiHtml += `<div class="label">${endpoint}</div><div class="api-data">${str}</div>`;
+    }
+  }
+
+  const canRestart = data.restart_cmd && data.restart_cmd.length > 0;
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span style="font-size:20px">${icon}</span>
+          <h2>${name}</h2>
+        </div>
+        ${badge}
+      </div>
+      <div class="card-body">
+        <div class="label">Port</div><div class="value">${portStr}</div>
+        ${detailHtml}
+        ${apiHtml}
+        <div class="label">Checked at</div><div class="value">${data.checked_at || '—'}</div>
+      </div>
+      <div class="card-actions">
+        ${canRestart ? `<button class="btn" data-project="${name}" onclick="restartProject('${name}')">↻ Restart</button>` : ''}
+        ${data.port ? `<a href="http://localhost:${data.port}" target="_blank" class="btn">🔗 Open</a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+async function refresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  try {
+    const data = await fetchStatus();
+    const grid = document.getElementById('grid');
+    const entries = Object.entries(data);
+    const online = entries.filter(([_, v]) => v.running).length;
+
+    grid.innerHTML = entries.map(([name, d]) => renderCard(name, d)).join('');
+
+    document.getElementById('countDisplay').textContent = `${online}/${entries.length} online`;
+    document.getElementById('lastUpdate').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    showToast('❌ Failed to fetch status: ' + e.message);
+  }
+
+  btn.classList.remove('spinning');
+  document.getElementById('timeDisplay').textContent = new Date().toLocaleTimeString();
+}
+
+// Auto-refresh
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
